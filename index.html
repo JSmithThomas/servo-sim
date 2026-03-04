@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRT Servo & Bellcrank Geometry Simulator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 15px;
+  }
+  h1 { color: #00d4ff; margin-bottom: 5px; font-size: 1.3em; }
+  .subtitle { color: #888; font-size: 0.8em; margin-bottom: 12px; }
+  canvas {
+    background: #0f0f23;
+    border: 2px solid #333;
+    border-radius: 8px;
+  }
+
+  .all-controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 860px;
+    width: 100%;
+  }
+  .control-group {
+    background: #16213e;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    flex: 1;
+    min-width: 250px;
+  }
+  .control-group h3 {
+    color: #00d4ff;
+    font-size: 0.85em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 6px;
+  }
+  .control-group h3.orange { color: #ff8844; }
+  .control-group h3.green { color: #00ff88; }
+
+  /* Universal card style */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .card-grid.single { grid-template-columns: 1fr; }
+
+  .card {
+    background: #0f0f23;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+  .card .card-label {
+    font-size: 0.7em;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .card .card-value {
+    font-size: 1.8em;
+    font-weight: bold;
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  .card input[type="range"] {
+    width: 100%;
+    margin-top: 6px;
+  }
+  .card.full-width { grid-column: 1 / -1; }
+
+  /* Color themes for cards */
+  .card.blue .card-value { color: #00d4ff; }
+  .card.blue input[type="range"] { accent-color: #00d4ff; }
+  .card.orange .card-value { color: #ff8844; }
+  .card.orange input[type="range"] { accent-color: #ff8844; }
+  .card.yellow .card-value { color: #ffaa00; }
+  .card.yellow input[type="range"] { accent-color: #ffaa00; }
+  .card.green .card-value { color: #00ff88; }
+  .card.green input[type="range"] { accent-color: #00ff88; }
+  .card.red .card-value { color: #ff5555; }
+  .card.red input[type="range"] { accent-color: #ff5555; }
+
+  /* Animate button */
+  .animate-btn {
+    background: #00d4ff; color: #1a1a2e; border: none;
+    padding: 10px 22px; border-radius: 5px; cursor: pointer;
+    font-weight: bold; font-size: 0.9em; margin-top: 10px;
+    width: 100%;
+  }
+  .animate-btn:hover { background: #00b8dd; }
+  .animate-btn.active { background: #ff6644; }
+
+  /* Readouts */
+  .readouts {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+    width: 100%;
+    max-width: 860px;
+  }
+  .readout {
+    background: #16213e;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #333;
+  }
+  .readout .label {
+    font-size: 0.7em;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .readout .val {
+    font-size: 1.6em;
+    font-weight: bold;
+    margin-top: 3px;
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  .safe { color: #00ff88; }
+  .warn { color: #ffaa00; }
+  .danger { color: #ff3355; }
+
+  /* Extremes */
+  .extremes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+    width: 100%;
+    max-width: 860px;
+  }
+  .extreme-card {
+    background: #16213e;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .extreme-card .ext-label { font-size: 0.8em; color: #aaa; }
+  .extreme-card .ext-val {
+    font-size: 1.4em;
+    font-weight: bold;
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+
+  .info-bar { margin-top: 10px; font-size: 0.72em; color: #555; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>⚙️ GRT Servo & Bellcrank Geometry Simulator</h1>
+<p class="subtitle">Control rod perpendicular to bellcrank arm at neutral — All parameters adjustable</p>
+
+<canvas id="sim" width="750" height="480"></canvas>
+
+<div class="all-controls">
+
+  <!-- ELEVATOR POSITION -->
+  <div class="control-group">
+    <h3>▶ Elevator Position</h3>
+    <div class="card-grid single">
+      <div class="card blue full-width">
+        <div class="card-label">Current Position</div>
+        <div class="card-value" id="elevBig">0.0°</div>
+        <input type="range" id="elevSlider" min="-18" max="30" value="0" step="0.5">
+      </div>
+    </div>
+    <button class="animate-btn" id="animBtn" onclick="toggleAnimate()">▶ Animate Full Travel</button>
+  </div>
+
+  <!-- BELLCRANK CONFIG -->
+  <div class="control-group">
+    <h3 class="orange">🔶 Bellcrank Configuration</h3>
+    <div class="card-grid">
+      <div class="card orange">
+        <div class="card-label">Up Elevator Stop</div>
+        <div class="card-value" id="upStopBig">30°</div>
+        <input type="range" id="upStopSlider" min="5" max="45" value="30" step="1">
+      </div>
+      <div class="card orange">
+        <div class="card-label">Down Elevator Stop</div>
+        <div class="card-value" id="dnStopBig">18°</div>
+        <input type="range" id="dnStopSlider" min="5" max="45" value="18" step="1">
+      </div>
+      <div class="card yellow">
+        <div class="card-label">Surface Arm</div>
+        <div class="card-value" id="surfArmBig">4.25"</div>
+        <input type="range" id="surfArmSlider" min="1.0" max="6.0" value="4.25" step="0.05">
+      </div>
+      <div class="card yellow">
+        <div class="card-label">Pushrod Arm</div>
+        <div class="card-value" id="pushArmBig">4.00"</div>
+        <input type="range" id="pushArmSlider" min="1.0" max="6.0" value="4.0" step="0.05">
+      </div>
+    </div>
+  </div>
+
+  <!-- SERVO CONFIG -->
+  <div class="control-group">
+    <h3 class="green">🟢 Servo Configuration</h3>
+    <div class="card-grid">
+      <div class="card green">
+        <div class="card-label">Servo Arm Length</div>
+        <div class="card-value" id="servoArmBig">1.50"</div>
+        <input type="range" id="servoArmSlider" min="0.5" max="3.0" value="1.5" step="0.05">
+      </div>
+      <div class="card green">
+        <div class="card-label">Bellcrank Hole</div>
+        <div class="card-value" id="bellcrankBig">2.30"</div>
+        <input type="range" id="bellcrankSlider" min="0.5" max="5.0" value="2.30" step="0.05">
+      </div>
+      <div class="card red">
+        <div class="card-label">Max Deflection</div>
+        <div class="card-value" id="servoLimitBig">60°</div>
+        <input type="range" id="servoLimitSlider" min="30" max="80" value="60" step="1">
+      </div>
+      <div class="card red">
+        <div class="card-label">OC Margin Min</div>
+        <div class="card-value" id="ocMarginBig">30°</div>
+        <input type="range" id="ocMarginSlider" min="10" max="60" value="30" step="1">
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- LIVE READOUTS -->
+<div class="readouts">
+  <div class="readout">
+    <div class="label">Servo Arm Angle</div>
+    <div class="val" id="servoAngleRead">0.0°</div>
+  </div>
+  <div class="readout">
+    <div class="label">From Over-Center</div>
+    <div class="val" id="overCenterRead">90.0°</div>
+  </div>
+  <div class="readout">
+    <div class="label">Status</div>
+    <div class="val" id="statusRead">✅ SAFE</div>
+  </div>
+</div>
+
+<!-- EXTREMES -->
+<div class="extremes">
+  <div class="extreme-card">
+    <span class="ext-label">Servo @ Full UP:</span>
+    <span class="ext-val" id="servoAtUp">—</span>
+  </div>
+  <div class="extreme-card">
+    <span class="ext-label">Servo @ Full DOWN:</span>
+    <span class="ext-val" id="servoAtDn">—</span>
+  </div>
+</div>
+
+<p class="info-bar">Control rod is perpendicular to bellcrank arm at neutral (per GRT page 12). Adjust all parameters to match your installation.</p>
+
+<script>
+const canvas = document.getElementById('sim');
+const ctx = canvas.getContext('2d');
+
+let elevAngle=0, servoArmLen=1.5, bellcrankHoleR=2.30, upStop=30, dnStop=18;
+let surfArmLen=4.25, pushArmLen=4.0, servoLimit=60, ocMargin=30;
+let animating=false, animDir=1, animId=null;
+const SCALE=50, bellcrankPivot={x:470,y:240};
+
+function toRad(d){return d*Math.PI/180;} function toDeg(r){return r*180/Math.PI;}
+
+function getServoPivot(){
+  const hy=bellcrankPivot.y-bellcrankHoleR*SCALE, sx=170, sy=hy+servoArmLen*SCALE;
+  return {x:sx,y:sy,rodLength:bellcrankPivot.x-sx};
+}
+
+function calcGeometry(ed){
+  const sv=getServoPivot(),sR=servoArmLen*SCALE,rL=sv.rodLength,rot=toRad(-ed);
+  const saA=Math.PI/2+rot;
+  const bcEnd={x:bellcrankPivot.x+Math.cos(saA)*surfArmLen*SCALE,y:bellcrankPivot.y-Math.sin(saA)*surfArmLen*SCALE};
+  const bcH={x:bellcrankPivot.x+Math.cos(saA)*bellcrankHoleR*SCALE,y:bellcrankPivot.y-Math.sin(saA)*bellcrankHoleR*SCALE};
+  const paA=-Math.PI/2+rot;
+  const bcP={x:bellcrankPivot.x+Math.cos(paA)*pushArmLen*SCALE,y:bellcrankPivot.y-Math.sin(paA)*pushArmLen*SCALE};
+  const dx=bcH.x-sv.x,dy=bcH.y-sv.y,d=Math.sqrt(dx*dx+dy*dy),aH=Math.atan2(-dy,dx);
+  let cA=(sR*sR+d*d-rL*rL)/(2*sR*d);cA=Math.max(-1,Math.min(1,cA));
+  const sAA=aH+Math.acos(cA),sT={x:sv.x+Math.cos(sAA)*sR,y:sv.y-Math.sin(sAA)*sR};
+  const nH={x:bellcrankPivot.x,y:bellcrankPivot.y-bellcrankHoleR*SCALE};
+  const nx=nH.x-sv.x,ny=nH.y-sv.y,nd=Math.sqrt(nx*nx+ny*ny),nAH=Math.atan2(-ny,nx);
+  let nc=(sR*sR+nd*nd-rL*rL)/(2*sR*nd);nc=Math.max(-1,Math.min(1,nc));
+  const nSA=nAH+Math.acos(nc),defl=toDeg(sAA-nSA);
+  return {sv,bcH,bcEnd,bcP,sT,sAR:sAA,nSAR:nSA,defl,fOC:90-Math.abs(defl),saA,paA};
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const g=calcGeometry(elevAngle),gN=calcGeometry(0),gU=calcGeometry(upStop),gD=calcGeometry(-dnStop);
+  const sv=g.sv,ad=Math.abs(g.defl),foc=g.fOC;
+  const bad=ad>servoLimit,dgr=foc<ocMargin,wrn=(foc<ocMargin+10&&!bad)||ad>servoLimit-10;
+
+  ctx.strokeStyle='#1a1a3a';ctx.lineWidth=0.5;
+  for(let x=0;x<canvas.width;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+  for(let y=0;y<canvas.height;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+
+  ctx.strokeStyle='rgba(255,170,0,0.2)';ctx.lineWidth=2;ctx.setLineDash([5,5]);
+  const a1=-(Math.PI/2+toRad(dnStop)),a2=-(Math.PI/2-toRad(upStop));
+  ctx.beginPath();ctx.arc(bellcrankPivot.x,bellcrankPivot.y,bellcrankHoleR*SCALE,Math.min(a1,a2),Math.max(a1,a2));ctx.stroke();ctx.setLineDash([]);
+
+  const nA=gN.nSAR,lL=servoArmLen*SCALE*1.2;
+  ctx.strokeStyle='rgba(255,50,50,0.3)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  const l1=nA+toRad(servoLimit),l2=nA-toRad(servoLimit);
+  ctx.beginPath();ctx.moveTo(sv.x,sv.y);ctx.lineTo(sv.x+Math.cos(l1)*lL,sv.y-Math.sin(l1)*lL);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(sv.x,sv.y);ctx.lineTo(sv.x+Math.cos(l2)*lL,sv.y-Math.sin(l2)*lL);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='10px Segoe UI';ctx.fillStyle='#ff5555';ctx.textAlign='center';
+  ctx.fillText(servoLimit+'° LIMIT',sv.x+Math.cos(l1)*(lL+16),sv.y-Math.sin(l1)*(lL+16));
+  ctx.fillText(servoLimit+'° LIMIT',sv.x+Math.cos(l2)*(lL+16),sv.y-Math.sin(l2)*(lL+16));
+
+  const oc1=nA+toRad(90-ocMargin),oc2=nA-toRad(90-ocMargin);
+  ctx.strokeStyle='rgba(255,200,0,0.12)';ctx.lineWidth=1;ctx.setLineDash([2,4]);
+  ctx.beginPath();ctx.moveTo(sv.x,sv.y);ctx.lineTo(sv.x+Math.cos(oc1)*lL*0.9,sv.y-Math.sin(oc1)*lL*0.9);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(sv.x,sv.y);ctx.lineTo(sv.x+Math.cos(oc2)*lL*0.9,sv.y-Math.sin(oc2)*lL*0.9);ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle='rgba(0,255,136,0.2)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(sv.x,sv.y);ctx.lineTo(sv.x+Math.cos(nA)*lL,sv.y-Math.sin(nA)*lL);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='9px Segoe UI';ctx.fillStyle='rgba(0,255,136,0.35)';
+  ctx.fillText('NEUTRAL',sv.x+Math.cos(nA)*(lL+14),sv.y-Math.sin(nA)*(lL+14));
+
+  ctx.strokeStyle='#ff8844';ctx.lineWidth=7;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(bellcrankPivot.x,bellcrankPivot.y);ctx.lineTo(g.bcEnd.x,g.bcEnd.y);ctx.stroke();
+  ctx.font='11px Segoe UI';ctx.fillStyle='#ff8844';ctx.textAlign='left';
+  ctx.fillText('TO CONTROL',g.bcEnd.x+8,g.bcEnd.y-5);ctx.fillText('SURFACE',g.bcEnd.x+8,g.bcEnd.y+9);
+
+  ctx.strokeStyle='#aa6633';ctx.lineWidth=5;
+  ctx.beginPath();ctx.moveTo(bellcrankPivot.x,bellcrankPivot.y);ctx.lineTo(g.bcP.x,g.bcP.y);ctx.stroke();
+  ctx.font='11px Segoe UI';ctx.fillStyle='#aa6633';ctx.textAlign='left';
+  ctx.fillText('TO CONTROL STICK',g.bcP.x+8,g.bcP.y+4);
+
+  if(Math.abs(elevAngle)<0.5){
+    const ad2=g.saA,pd=ad2-Math.PI/2,sq=12,hx=g.bcH.x,hy=g.bcH.y;
+    ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.5;
+    const ax=hx+Math.cos(ad2)*sq,ay=hy-Math.sin(ad2)*sq;
+    const bx=ax+Math.cos(pd)*sq,by=ay-Math.sin(pd)*sq;
+    const cx=hx+Math.cos(pd)*sq,cy=hy-Math.sin(pd)*sq;
+    ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.lineTo(cx,cy);ctx.stroke();
+    ctx.font='9px Segoe UI';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.textAlign='right';
+    ctx.fillText('90°',hx-15,hy-5);
+  }
+
+  const rc=dgr||bad?'#ff3355':wrn?'#ffaa00':'#00d4ff';
+  ctx.strokeStyle=rc;ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(g.bcH.x,g.bcH.y);ctx.lineTo(g.sT.x,g.sT.y);ctx.stroke();
+  ctx.font='9px Segoe UI';ctx.fillStyle='rgba(0,212,255,0.5)';ctx.textAlign='center';
+  ctx.fillText('CONTROL ROD',(g.bcH.x+g.sT.x)/2,(g.bcH.y+g.sT.y)/2+18);
+
+  ctx.strokeStyle='#00ff88';ctx.lineWidth=5;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(sv.x,sv.y);ctx.lineTo(g.sT.x,g.sT.y);ctx.stroke();
+
+  ctx.fillStyle='#00ff88';ctx.beginPath();ctx.arc(sv.x,sv.y,9,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#0f0f23';ctx.beginPath();ctx.arc(sv.x,sv.y,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ff8844';ctx.beginPath();ctx.arc(bellcrankPivot.x,bellcrankPivot.y,9,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#0f0f23';ctx.beginPath();ctx.arc(bellcrankPivot.x,bellcrankPivot.y,4,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#ffdd00';
+  ctx.beginPath();ctx.arc(g.bcH.x,g.bcH.y,5,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(g.sT.x,g.sT.y,5,0,Math.PI*2);ctx.fill();
+
+  ctx.font='bold 11px Segoe UI';ctx.textAlign='center';
+  ctx.fillStyle='#00ff88';ctx.fillText(servoArmLen.toFixed(2)+'"',(sv.x+g.sT.x)/2-18,(sv.y+g.sT.y)/2);
+  ctx.fillStyle='#ffaa00';ctx.fillText(bellcrankHoleR.toFixed(2)+'"',(bellcrankPivot.x+g.bcH.x)/2+22,(bellcrankPivot.y+g.bcH.y)/2);
+  ctx.fillStyle='rgba(255,136,68,0.4)';ctx.font='10px Segoe UI';
+  ctx.fillText(surfArmLen.toFixed(2)+'"',(bellcrankPivot.x+g.bcEnd.x)/2-35,(bellcrankPivot.y+g.bcEnd.y)/2);
+
+  ctx.font='12px Segoe UI';ctx.fillStyle='#666';ctx.textAlign='center';
+  ctx.fillText('SERVO',sv.x,sv.y+25);ctx.fillText('SHAFT',sv.x,sv.y+39);
+  ctx.fillText('BELLCRANK',bellcrankPivot.x,bellcrankPivot.y+25);ctx.fillText('PIVOT',bellcrankPivot.x,bellcrankPivot.y+39);
+
+  if(ad>0.5){
+    ctx.strokeStyle=dgr||bad?'rgba(255,51,85,0.6)':wrn?'rgba(255,170,0,0.6)':'rgba(0,255,136,0.6)';
+    ctx.lineWidth=2;const ar=servoArmLen*SCALE*0.35,aa=-nA,ab=-g.sAR;
+    ctx.beginPath();ctx.arc(sv.x,sv.y,ar,Math.min(aa,ab),Math.max(aa,ab));ctx.stroke();
+    ctx.font='bold 12px Segoe UI';ctx.fillStyle=dgr||bad?'#ff3355':wrn?'#ffaa00':'#00ff88';
+    ctx.textAlign='center';const ma=(aa+ab)/2;
+    ctx.fillText(ad.toFixed(1)+'°',sv.x+Math.cos(ma)*(ar+20),sv.y+Math.sin(ma)*(ar+20));
+  }
+
+  ctx.font='bold 14px Segoe UI';ctx.fillStyle='#fff';ctx.textAlign='left';
+  ctx.fillText('ELEVATOR: '+(elevAngle>=0?elevAngle.toFixed(1)+'° UP':Math.abs(elevAngle).toFixed(1)+'° DOWN'),15,25);
+
+  ctx.font='9px Segoe UI';ctx.fillStyle='rgba(255,102,68,0.5)';ctx.textAlign='right';
+  const usA2=Math.PI/2-toRad(upStop);
+  ctx.fillText(upStop+'° UP',bellcrankPivot.x+Math.cos(usA2)*(bellcrankHoleR*SCALE+28)-5,bellcrankPivot.y-Math.sin(usA2)*(bellcrankHoleR*SCALE+28));
+  const dsA2=Math.PI/2+toRad(dnStop);
+  ctx.fillText(dnStop+'° DN',bellcrankPivot.x+Math.cos(dsA2)*(bellcrankHoleR*SCALE+28)-5,bellcrankPivot.y-Math.sin(dsA2)*(bellcrankHoleR*SCALE+28));
+
+  const sc=dgr?'danger':bad?'danger':wrn?'warn':'safe';
+  document.getElementById('servoAngleRead').textContent=ad.toFixed(1)+'°';
+  document.getElementById('servoAngleRead').className='val '+sc;
+  document.getElementById('overCenterRead').textContent=foc.toFixed(1)+'°';
+  document.getElementById('overCenterRead').className='val '+(foc<ocMargin?'danger':foc<ocMargin+10?'warn':'safe');
+  const sr=document.getElementById('statusRead');
+  if(dgr||foc<ocMargin){sr.textContent='⛔ DANGER';sr.className='val danger';}
+  else if(bad||wrn){sr.textContent='⚠️ CAUTION';sr.className='val warn';}
+  else{sr.textContent='✅ SAFE';sr.className='val safe';}
+
+  const uD=Math.abs(gU.defl),dD=Math.abs(gD.defl);
+  const eu=document.getElementById('servoAtUp');eu.textContent=uD.toFixed(1)+'°';
+  eu.style.color=uD>servoLimit?'#ff3355':(90-uD)<ocMargin?'#ff3355':uD>servoLimit-10?'#ffaa00':'#00ff88';
+  const ed=document.getElementById('servoAtDn');ed.textContent=dD.toFixed(1)+'°';
+  ed.style.color=dD>servoLimit?'#ff3355':(90-dD)<ocMargin?'#ff3355':dD>servoLimit-10?'#ffaa00':'#00ff88';
+}
+
+function wire(id,fn,dispId,fmt){
+  document.getElementById(id).addEventListener('input',function(){
+    fn(parseFloat(this.value));document.getElementById(dispId).textContent=fmt(parseFloat(this.value));
+    syncLimits();draw();
+  });
+}
+document.getElementById('elevSlider').addEventListener('input',function(){
+  elevAngle=parseFloat(this.value);
+  document.getElementById('elevBig').textContent=(elevAngle>=0?elevAngle.toFixed(1)+'° UP':Math.abs(elevAngle).toFixed(1)+'° DN');
+  draw();
+});
+wire('upStopSlider',v=>{upStop=v},'upStopBig',v=>v+'°');
+wire('dnStopSlider',v=>{dnStop=v},'dnStopBig',v=>v+'°');
+wire('surfArmSlider',v=>{surfArmLen=v},'surfArmBig',v=>v.toFixed(2)+'"');
+wire('pushArmSlider',v=>{pushArmLen=v},'pushArmBig',v=>v.toFixed(2)+'"');
+wire('servoArmSlider',v=>{servoArmLen=v},'servoArmBig',v=>v.toFixed(2)+'"');
+wire('bellcrankSlider',v=>{bellcrankHoleR=v},'bellcrankBig',v=>v.toFixed(2)+'"');
+wire('servoLimitSlider',v=>{servoLimit=v},'servoLimitBig',v=>v+'°');
+wire('ocMarginSlider',v=>{ocMargin=v},'ocMarginBig',v=>v+'°');
+
+function syncLimits(){
+  const s=document.getElementById('elevSlider');s.min=-dnStop;s.max=upStop;
+  if(elevAngle>upStop){elevAngle=upStop;s.value=elevAngle;}
+  if(elevAngle<-dnStop){elevAngle=-dnStop;s.value=elevAngle;}
+  document.getElementById('elevBig').textContent=(elevAngle>=0?elevAngle.toFixed(1)+'° UP':Math.abs(elevAngle).toFixed(1)+'° DN');
+}
+
+function toggleAnimate(){
+  const b=document.getElementById('animBtn');
+  if(animating){animating=false;cancelAnimationFrame(animId);b.textContent='▶ Animate Full Travel';b.classList.remove('active');}
+  else{animating=true;b.textContent='⏹ Stop';b.classList.add('active');animLoop();}
+}
+function animLoop(){
+  if(!animating)return;
+  elevAngle+=animDir*0.3;
+  if(elevAngle>=upStop){elevAngle=upStop;animDir=-1;}
+  if(elevAngle<=-dnStop){elevAngle=-dnStop;animDir=1;}
+  document.getElementById('elevSlider').value=elevAngle;
+  document.getElementById('elevBig').textContent=(elevAngle>=0?elevAngle.toFixed(1)+'° UP':Math.abs(elevAngle).toFixed(1)+'° DN');
+  draw();animId=requestAnimationFrame(animLoop);
+}
+
+syncLimits();draw();
+</script>
+</body>
+</html>
